@@ -1,0 +1,156 @@
+NEUROSIGNAL PROJECT NOTES
+=========================
+Last updated: 2026-10-23
+
+1. WHAT THE PROJECT IS
+----------------------
+Neurosignal is a stock research web app. It shows a price analysis for a stock,
+an ML signal from several models, and an Ask Neuro chatbot that answers questions
+about companies with live market data.
+
+Pages:
+- Landing (/)        Sign in with Google (single button, no sign-up).
+- Dashboard          Requires sign-in. Shows "Top stocks" (6 buttons) and
+                     "Trending worldwide" (6 buttons, ranked by unusual volume
+                     and price move). Clicking a button or searching loads that stock.
+                     Each stock shows KPIs, chart, signal card, 4-model panel and
+                     the Ask Neuro chatbot.
+
+2. ARCHITECTURE
+---------------
+Browser (React, TanStack Start, Vite, localhost:8080)
+  -> FastAPI backend (Python, localhost:8000)
+       -> Google sign-in check and JWT session (auth_google.py)
+       -> MarketCache API Gateway (AWS Sydney): stock history cache
+            -> falls back to Yahoo Finance (yfinance)
+       -> LLM router API Gateway (AWS Sydney): multi-LLM with semantic cache
+            -> primary provider: Sarvam (sarvam-105b)
+            -> fallback: Gemini (gemini-3.5-flash-lite)
+       -> Stock context (stock_context.py): name detection with typo tolerance,
+            live price, company overview, live USD to INR rate (USDINR=X)
+       -> Trending (trending.py): Yahoo screener most-active and day-gainers,
+            ranked, cached 15 minutes, fixed fallback list if the screener fails
+       -> ML models (main.py + deep_models.py): XGBoost + Random Forest (existing),
+            LSTM and TFT-style network (PyTorch), shown as a 4-model ensemble
+
+3. FILES
+--------
+Backend (E:\neurosignal\neurosignal\backend)
+  main.py             App, /analysis/{ticker}, /auth/google, /health, router wiring
+  auth_google.py      Google token check, JWT issue and decode
+  market_cache.py     MarketCache client (your file, unchanged)
+  ticker_resolver.py  Ticker format (NSE .NS, BSE .BO, US plain symbols)
+  ask_neuro.py        /chat/ask: cache, price shortcut, rate limit, router call
+  stock_context.py    Stock name detection, live snapshot, FX rate
+  trending.py         /trending/worldwide
+  deep_models.py      LSTM, TFT-style model, 4-model summary
+
+Frontend (E:\neurosignal\neurosignal\src)
+  routes/index.tsx        Landing page with one Google sign-in button
+  routes/dashboard.tsx    Sign-in guard, top and worldwide stock buttons, analysis
+  components/SingleSignOn.tsx   Google button, loads the Google script itself
+  components/QuantChatbot.tsx   Ask Neuro chat panel with stock card
+  components/TrendingStocks.tsx Top 6 stock buttons
+  components/TrendingWorldwide.tsx  Worldwide trending buttons
+  components/ModelPanel.tsx     4-model ensemble panel
+  services/trending.ts          Trending API call
+
+4. SETTINGS (names only, values live in .env, which is git-ignored)
+-------------------------------------------------------------------
+Backend: GOOGLE_CLIENT_ID, JWT_SECRET, CORS_ORIGINS, MARKETCACHE_API_URL,
+  MARKETCACHE_API_KEY, LLM_ROUTER_URL, LLM_ROUTER_API_KEY, ASK_NEURO_ACTION,
+  ASK_NEURO_TIMEOUT (25), ANSWER_CACHE_TTL (1800), ASK_RATE_LIMIT (12)
+Frontend: VITE_NEUROSIGNAL_API_URL, VITE_GOOGLE_CLIENT_ID
+
+Rule: never put a secret in a VITE_ variable. Those reach the browser.
+
+5. KEY DECISIONS
+----------------
+- Sign-in is mandatory for the dashboard.
+- Yahoo is the source of prices. RELIANCE.NS prices are in rupees, US prices in
+  dollars. The chatbot adds an approximate rupee price for US stocks.
+- Ask Neuro answers from live data where it can. A simple price question is
+  answered locally with no model call.
+- The router decides the model order. The app just calls the router.
+- Free tier: Sarvam is primary. Its reasoning uses most of its token budget,
+  so replies can come back empty. The router should cap or tune tokens for it.
+
+6. WHAT WE FIXED (AND HOW)
+--------------------------
+- Backend would not start: BOM and __future__ import order. Fixed by re-saving
+  UTF-8 without BOM and placing load_dotenv after the __future__ import.
+- GOOGLE_CLIENT_ID not found: .env was not loaded before auth_google.py was
+  imported. Fixed with load_dotenv at the top of main.py.
+- AWS credentials error: credentials file had a bad line. Rewritten.
+- 403 "Missing Authentication Token" from router: the URL was missing /v1.
+  Correct URL ends in /prod/v1.
+- Router "'query' must be a non-empty string": the router expects "query",
+  not "question".
+- Ask Neuro 502: the backend used the MarketCache client for the router.
+  Replaced with a direct POST.
+- Router 504: API Gateway has a 29-second limit. Backend timeout set to 25.
+- Empty Sarvam replies: Sarvam returned finish_reason "length" with all
+  2048 tokens used for reasoning, so no visible text. The router then failed
+  over to Gemini. Confirmed by CloudWatch llm_failover_telemetry entries
+  (FailoverReason empty_response, PrimaryStatusCode 0, about 9 to 11 seconds).
+- Dashboard was opening on AAPL and the chart had no stock list. Now it starts
+  on the stock buttons.
+- Generic chatbot answers: name detection now finds NVIDIA, Reliance and
+  typos like "nvdia". The prompt is stock-specific.
+- Dashboard showed $ for Indian stocks: the KPI and signal components still
+  have a hard-coded $ (see open items).
+
+7. OPEN ITEMS
+-------------
+- Sarvam token budget: set max_tokens around 1500 to 2048 for Sarvam in the
+  router, and read the content field. Confirm the router's Sarvam request code.
+- KPI tape, signal card and chart show $ for Indian stocks. Replace with the
+  currency_symbol from the analysis response.
+- Holidays are not handled in market hours.
+- The ML model uses a short history with no walk-forward validation.
+  Outputs are research signals, not forecasts.
+- User dashboard (saved stocks, username, recent searches) was removed. It can
+  return later as a DynamoDB-backed feature.
+- Trending uses an unofficial Yahoo screener. It can change without notice.
+- Deployment to Azure (Static Web Apps for the frontend, App Service for the
+  backend) is planned but not done.
+
+8. SECURITY
+-----------
+- Several keys were pasted into chat during development: the MarketCache key,
+  the LLM router key, the AWS access key, and the Sarvam key. Treat them as
+  exposed. Rotate each one in its provider console, then update .env only.
+- The JWT secret must stay the same, or existing sessions stop working.
+- Keep .env out of Git (already in .gitignore).
+
+9. FREE-TIER USAGE
+------------------
+- Backend answer cache: 30 minutes per question and stock.
+- Price-only questions are answered with no model call.
+- Rate limit: 12 model calls per minute (ASK_RATE_LIMIT).
+- Reply length capped at 80 words; business summary capped at 150 characters.
+- Check each provider's current free limits on its pricing page, since they
+  change. Alternatives if needed: Gemini (free tier), Groq (free tier),
+  OpenRouter (some free models).
+
+10. HOW TO RUN LOCALLY
+----------------------
+Backend (window 1):
+  cd E:\neurosignal\neurosignal\backend
+  python -m uvicorn main:app --reload --port 8000
+
+Frontend (window 2):
+  cd E:\neurosignal\neurosignal
+  npm run dev
+
+Health check (window 3):
+  Invoke-RestMethod -Uri http://localhost:8000/health
+
+11. NEXT STEPS
+--------------
+1. Rotate the exposed keys.
+2. Fix the router's Sarvam token budget, or move the router's primary to a
+   provider with a free tier that returns text reliably.
+3. Fix the currency symbols in the KPI tape, signal card and chart.
+4. Deploy: frontend to Azure Static Web Apps, backend to Azure App Service.
+5. Add the user dashboard back with DynamoDB when needed.

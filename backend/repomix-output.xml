@@ -1,0 +1,1327 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+auth_google.py
+main.py
+market_cache.py
+requirements.txt
+test_market_cache.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="auth_google.py">
+"""
+auth_google.py — Google Sign-In (ID token) authentication for NeuroSignal AI.
+
+Flow:
+  1. Frontend loads Google Identity Services (GSI) and obtains a credential (ID token).
+  2. Frontend POSTs that token to  POST /auth/google  on this backend.
+  3. Backend verifies the token's signature, audience, and expiry via Google's public keys.
+  4. Backend returns a signed JWT the frontend stores in memory / sessionStorage.
+  5. All subsequent API calls carry  Authorization: Bearer <jwt>  and are validated by
+     the  get_current_user  dependency — no password is ever stored or checked.
+
+Requirements (add to requirements.txt):
+    google-auth>=2.29
+    python-jose[cryptography]>=3.3
+    httpx>=0.27          # only needed if you add token refresh helpers
+"""
+
+from __future__ import annotations
+
+import os
+import time
+from typing import Annotated
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
+from jose import JWTError, jwt
+from pydantic import BaseModel
+
+# ---------------------------------------------------------------------------
+# Configuration  (set these as environment variables — never hard-code)
+# ---------------------------------------------------------------------------
+
+# Your Google OAuth 2.0 client ID (from https://console.cloud.google.com)
+GOOGLE_CLIENT_ID: str = os.environ["GOOGLE_CLIENT_ID"]
+
+# Secret used to sign the JWT we issue.  Generate once with:
+#   python -c "import secrets; print(secrets.token_hex(32))"
+JWT_SECRET: str = os.environ["JWT_SECRET"]
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_SECONDS = 60 * 60 * 8  # 8 hours
+
+
+# ---------------------------------------------------------------------------
+# Pydantic schemas
+# ---------------------------------------------------------------------------
+
+class GoogleAuthIn(BaseModel):
+    """Body of  POST /auth/google."""
+    credential: str          # The raw Google ID token string from GSI
+
+
+class UserProfile(BaseModel):
+    """Minimal profile extracted from a verified Google token.
+    Nothing here is stored — it is derived fresh from Google on every login.
+    """
+    sub: str                 # Google's stable user ID (use this as your user key)
+    email: str
+    name: str
+    picture: str             # Avatar URL hosted by Google
+    email_verified: bool
+
+
+class AuthResponse(BaseModel):
+    """Returned to the frontend after successful authentication."""
+    access_token: str        # Signed JWT — store in memory or sessionStorage
+    token_type: str = "bearer"
+    profile: UserProfile
+
+
+# ---------------------------------------------------------------------------
+# Core helpers
+# ---------------------------------------------------------------------------
+
+def _verify_google_token(credential: str) -> dict:
+    """
+    Verify the Google ID token and return its decoded claims.
+
+    Raises HTTPException(401) if the token is invalid, expired, or issued
+    for a different client ID.
+    """
+    try:
+        claims: dict = google_id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10,   # tolerate minor clock drift
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Google token: {exc}",
+        ) from exc
+
+    # Extra guard: verify the token was intended for THIS app.
+    if claims.get("aud") != GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token audience mismatch.",
+        )
+
+    return claims
+
+
+def _issue_jwt(profile: UserProfile) -> str:
+    """
+    Create and sign a short-lived JWT encoding the user's identity.
+    The JWT is verified on every protected request; no session state is kept
+    server-side.
+    """
+    now = int(time.time())
+    payload = {
+        "sub": profile.sub,
+        "email": profile.email,
+        "name": profile.name,
+        "picture": profile.picture,
+        "iat": now,
+        "exp": now + JWT_EXPIRE_SECONDS,
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _decode_jwt(token: str) -> dict:
+    """
+    Decode and validate our own JWT.
+    Raises HTTPException(401) on any failure.
+    """
+    try:
+        payload: dict = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Could not validate token: {exc}",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    return payload
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency — protect any route with:
+#   current_user: CurrentUser = Depends(get_current_user)
+# ---------------------------------------------------------------------------
+
+_bearer = HTTPBearer(auto_error=True)
+_optional_bearer = HTTPBearer(auto_error=False)
+
+
+def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer)],
+) -> UserProfile:
+    """
+    FastAPI dependency that validates the JWT in the Authorization header
+    and returns the decoded UserProfile.
+
+    Usage:
+        @app.get("/protected")
+        def protected(user: UserProfile = Depends(get_current_user)):
+            return {"hello": user.email}
+    """
+    payload = _decode_jwt(credentials.credentials)
+    return UserProfile(
+        sub=payload["sub"],
+        email=payload["email"],
+        name=payload["name"],
+        picture=payload["picture"],
+        email_verified=True,
+    )
+
+
+def get_optional_current_user(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(_optional_bearer)
+    ],
+) -> UserProfile | None:
+    if credentials is None:
+        return None
+    return get_current_user(credentials)
+
+
+# Convenience type alias for route signatures
+CurrentUser = Annotated[UserProfile, Depends(get_current_user)]
+OptionalCurrentUser = Annotated[UserProfile | None, Depends(get_optional_current_user)]
+
+
+# ---------------------------------------------------------------------------
+# Route handler — register this in main.py (see instructions in README)
+# ---------------------------------------------------------------------------
+
+async def google_login(body: GoogleAuthIn) -> AuthResponse:
+    """
+    POST /auth/google
+
+    Accepts a Google ID token, verifies it, and returns a signed JWT.
+    No user data is written to any database.
+    """
+    claims = _verify_google_token(body.credential)
+
+    profile = UserProfile(
+        sub=claims["sub"],
+        email=claims["email"],
+        name=claims.get("name", ""),
+        picture=claims.get("picture", ""),
+        email_verified=bool(claims.get("email_verified", False)),
+    )
+
+    token = _issue_jwt(profile)
+    return AuthResponse(access_token=token, profile=profile)
+
+
+async def logout() -> dict:
+    """
+    POST /auth/logout
+
+    JWTs are stateless — 'logout' is handled client-side by discarding the
+    token.  This endpoint exists so the frontend has a consistent hook for
+    any future server-side cleanup (e.g. token revocation list).
+    """
+    return {"ok": True, "message": "Token discarded client-side."}
+</file>
+
+<file path="main.py">
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import time
+from typing import Literal
+
+import numpy as np
+import pandas as pd
+import yfinance as yf
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+from xgboost import XGBRegressor
+
+
+from auth_google import (
+    AuthResponse,
+    CurrentUser,
+    GoogleAuthIn,
+    OptionalCurrentUser,
+    google_login,
+    logout as google_logout,
+)
+from market_cache import MarketCacheClient, MarketCacheError
+
+
+# --------------------------------------------------
+# Application configuration
+# --------------------------------------------------
+
+app = FastAPI(title="NeuroSignal AI", version="3.0")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+SignalType = Literal["STRONG_BUY", "STRONG_SELL", "NEUTRAL"]
+
+# Local in-memory cache: ticker -> (timestamp, result)
+_analysis_cache: dict[str, tuple[float, dict]] = {}
+
+_market_cache = MarketCacheClient()
+ANALYSIS_CACHE_TTL = 300
+HISTORY_CACHE_KEY = "US:{ticker}:HISTORY:2Y:1D"
+
+
+# --------------------------------------------------
+# Authentication
+# --------------------------------------------------
+
+@app.post("/auth/google", response_model=AuthResponse, tags=["auth"])
+async def route_google_login(body: GoogleAuthIn):
+    """Verify a Google ID token and return a signed JWT."""
+    return await google_login(body)
+
+
+@app.post("/auth/logout", tags=["auth"])
+async def route_logout():
+    """Client should discard its token."""
+    return await google_logout()
+
+
+@app.get("/auth/me", tags=["auth"])
+async def route_me(user: CurrentUser):
+    """Return the identity encoded in the caller's JWT."""
+    return user
+
+
+# --------------------------------------------------
+# Request schemas
+# --------------------------------------------------
+
+class Row(BaseModel):
+    date: str
+    close: float
+
+
+class DatasetIn(BaseModel):
+    label: str
+    rows: list[Row]
+
+
+class ChatCtx(BaseModel):
+    ticker: str
+    rsi: float
+    signal: SignalType
+    target: float
+
+
+class ChatIn(BaseModel):
+    q: str
+    ctx: ChatCtx
+
+
+class InteractionIn(BaseModel):
+    ticker: str
+    interaction_type: Literal["ticker_selected"] = "ticker_selected"
+
+
+# --------------------------------------------------
+# Technical indicators
+# --------------------------------------------------
+
+def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    df["sma_20"] = df["close"].rolling(
+        window=20, min_periods=1
+    ).mean()
+
+    delta = df["close"].diff()
+
+    gain = delta.clip(lower=0).ewm(
+        alpha=1 / 14, adjust=False
+    ).mean()
+
+    loss = (-delta.clip(upper=0)).ewm(
+        alpha=1 / 14, adjust=False
+    ).mean()
+
+    rs = gain / loss.replace(0, np.nan)
+
+    df["rsi"] = (
+        100 - 100 / (1 + rs)
+    ).fillna(50)
+
+    return df
+
+
+FEATURES = {
+    "rsi": "RSI (14)",
+    "sma_spread": "SMA-20 Spread",
+    "mom_20": "Momentum 20d",
+    "vol_20": "Volatility",
+    "ret_1": "Return 1d",
+}
+
+
+# --------------------------------------------------
+# Stock analysis and prediction
+# --------------------------------------------------
+
+def analyze(ticker: str, df: pd.DataFrame) -> dict:
+    if len(df) < 60:
+        raise HTTPException(
+            status_code=422,
+            detail="Need at least 60 rows of price history",
+        )
+
+    df = add_indicators(df)
+
+    features = pd.DataFrame(index=df.index)
+
+    features["rsi"] = df["rsi"]
+    features["sma_spread"] = (
+        df["close"] - df["sma_20"]
+    ) / df["sma_20"]
+
+    features["mom_20"] = df["close"].pct_change(20)
+
+    features["vol_20"] = (
+        df["close"].pct_change().rolling(20).std()
+    )
+
+    features["ret_1"] = df["close"].pct_change()
+
+    target = df["close"].shift(-5) / df["close"] - 1
+
+    data = features.assign(y=target).dropna()
+
+    split = int(len(data) * 0.8)
+
+    X_train = data.iloc[:split][list(FEATURES)]
+    X_test = data.iloc[split:][list(FEATURES)]
+
+    y_train = data.iloc[:split]["y"]
+    y_test = data.iloc[split:]["y"]
+
+    if X_train.empty or X_test.empty:
+        raise HTTPException(
+            status_code=422,
+            detail="Insufficient usable data for model evaluation",
+        )
+
+    models = {
+        "XGBoost": XGBRegressor(
+            n_estimators=200,
+            max_depth=3,
+            learning_rate=0.05,
+            verbosity=0,
+            random_state=42,
+            objective="reg:squarederror",
+            n_jobs=1,
+        ),
+        "Random Forest": RandomForestRegressor(
+            n_estimators=200,
+            max_depth=6,
+            random_state=42,
+            n_jobs=1,
+        ),
+    }
+
+    best_name = None
+    best_model = None
+    best_rmse = float("inf")
+    best_predictions = None
+
+    for name, model in models.items():
+        model.fit(X_train, y_train)
+
+        predictions = model.predict(X_test)
+
+        rmse = float(
+            np.sqrt(mean_squared_error(y_test, predictions))
+        )
+
+        if rmse < best_rmse:
+            best_name = name
+            best_model = model
+            best_rmse = rmse
+            best_predictions = predictions
+
+    if best_model is None or best_predictions is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to train a prediction model",
+        )
+
+    hit_ratio = float(
+        (
+            np.sign(best_predictions)
+            == np.sign(y_test.to_numpy())
+        ).mean() * 100
+    )
+
+    latest_features = features[list(FEATURES)].dropna()
+
+    if latest_features.empty:
+        raise HTTPException(
+            status_code=422,
+            detail="Insufficient data to calculate the latest prediction",
+        )
+
+    latest = latest_features.iloc[[-1]]
+
+    predicted_return = float(
+        best_model.predict(latest)[0]
+    ) * 100
+
+    last = df.iloc[-1]
+
+    latest_price = float(last["close"])
+    rsi_now = float(last["rsi"])
+
+    signal: SignalType = (
+        "STRONG_BUY"
+        if predicted_return > 1.5 and rsi_now < 70
+        else "STRONG_SELL"
+        if predicted_return < -1.5 and rsi_now > 30
+        else "NEUTRAL"
+    )
+
+    importances = best_model.feature_importances_
+
+    if importances.sum():
+        importances = importances / importances.sum()
+
+    tail = df.tail(120)
+
+    return {
+        "ticker": ticker,
+        "live_price": round(latest_price, 2),
+        "target_price": round(
+            latest_price * (1 + predicted_return / 100), 2
+        ),
+        "predicted_return_pct": round(predicted_return, 2),
+        "hit_ratio": round(hit_ratio, 1),
+        "rsi_now": round(rsi_now, 2),
+        "signal": signal,
+        "model_used": best_name,
+        "rmse": round(best_rmse * latest_price, 3),
+        "chart_data": [
+            {
+                "date": str(date)[:10],
+                "close": round(float(row["close"]), 2),
+                "sma_20": round(float(row["sma_20"]), 2),
+                "rsi": round(float(row["rsi"]), 2),
+            }
+            for date, row in tail.iterrows()
+        ],
+        "feature_importance": sorted(
+            [
+                {
+                    "feature": FEATURES[key],
+                    "weight": round(float(weight), 3),
+                }
+                for key, weight in zip(FEATURES, importances)
+            ],
+            key=lambda item: -item["weight"],
+        ),
+    }
+
+
+# --------------------------------------------------
+# Stockcache helpers
+# --------------------------------------------------
+
+def _history_from_cache(ticker: str) -> pd.DataFrame | None:
+    """
+    Read and validate historical prices from AWS Marketcache.
+
+    Expected cache_get response:
+        {"data": [{"date": "YYYY-MM-DD", "close": 123.45}]}
+
+    A null or empty data value is treated as a cache miss.
+    """
+    cache_key = HISTORY_CACHE_KEY.format(ticker=ticker)
+    logger.info(
+        "AWS CACHE READ: ticker=%s key=%s",
+        ticker,
+        cache_key,
+    )
+
+    response = _market_cache.action(
+        "cache_get",
+        symbol=ticker,
+        cache_key=cache_key,
+    )
+
+    if not isinstance(response, dict):
+        raise MarketCacheError(
+            "Stockcache cache_get response must be an object"
+        )
+
+    if "data" not in response:
+        raise MarketCacheError(
+            "Stockcache cache_get response is missing 'data'"
+        )
+
+
+    rows = response["data"]
+
+    if isinstance(rows, dict):
+        rows = rows.get("rows")
+
+    if rows is None or rows == []:
+        logger.info("AWS CACHE MISS: ticker=%s (empty entry)", ticker)
+        return None
+
+    if not isinstance(rows, list):
+        raise MarketCacheError(
+            "Stockcache cache_get 'data' must contain a list of rows"
+        )
+
+
+
+    if rows is None or rows == []:
+        logger.info(
+            "AWS CACHE MISS: ticker=%s (empty entry)",
+            ticker,
+        )
+        return None
+
+    if not isinstance(rows, list):
+        logger.warning(
+            "Unexpected Stockcache data type for %s: %s",
+            ticker,
+            type(rows).__name__,
+        )
+        raise MarketCacheError(
+            "Stockcache cache_get 'data' must be a list or null"
+        )
+
+    if not rows:
+        return None
+
+    try:
+        df = pd.DataFrame(rows)
+
+        if not {"date", "close"}.issubset(df.columns):
+            raise ValueError(
+                "Cached rows must contain date and close"
+            )
+
+        df = df[["date", "close"]].copy()
+
+        df["date"] = pd.to_datetime(
+            df["date"], errors="coerce"
+        )
+
+        df["close"] = pd.to_numeric(
+            df["close"], errors="coerce"
+        )
+
+        df = (
+            df.dropna()
+            .sort_values("date")
+            .drop_duplicates("date", keep="last")
+        )
+
+    except (TypeError, ValueError, KeyError) as exc:
+        raise MarketCacheError(
+            "Stockcache returned invalid market data"
+        ) from exc
+
+    if len(df) < 60:
+        logger.info(
+            "AWS CACHE MISS: ticker=%s valid_rows=%d (minimum=60)",
+            ticker,
+            len(df),
+        )
+        return None
+
+    logger.info(
+        "AWS CACHE HIT: ticker=%s rows=%d",
+        ticker,
+        len(df),
+    )
+    return df.set_index("date")
+
+
+def _to_cache_rows(
+    df: pd.DataFrame,
+) -> list[dict[str, str | float]]:
+    """Convert a price DataFrame to serializable cache rows."""
+    return [
+        {
+            "date": pd.Timestamp(date).strftime("%Y-%m-%d"),
+            "close": float(row["close"]),
+        }
+        for date, row in df.iterrows()
+    ]
+
+
+def _ticker_values(value: object) -> list[str]:
+    """Extract ticker symbols from common preference/history shapes."""
+    if isinstance(value, dict):
+        for key in (
+            "preferred_tickers",
+            "tickers",
+            "favorites",
+            "symbols",
+            "history",
+        ):
+            if key in value:
+                return _ticker_values(value[key])
+
+        ticker = value.get("ticker") or value.get("symbol")
+
+        if isinstance(ticker, str) and ticker.strip():
+            return [ticker.strip().upper()]
+
+        return []
+
+    if isinstance(value, list):
+        tickers: list[str] = []
+
+        for item in value:
+            tickers.extend(_ticker_values(item))
+
+        return tickers
+
+    if isinstance(value, str) and value.strip():
+        return [value.strip().upper()]
+
+    return []
+
+
+def _fetch_history_from_yahoo(ticker: str) -> pd.DataFrame:
+    """Fetch daily historical prices from Yahoo Finance."""
+    try:
+        hist = yf.Ticker(ticker).history(
+            period="2y",
+            interval="1d",
+        )
+    except Exception as exc:
+        logger.exception(
+            "Yahoo Finance history request failed for %s",
+            ticker,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to retrieve market data for {ticker}",
+        ) from exc
+
+    if hist.empty or "Close" not in hist.columns:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No market data for {ticker}",
+        )
+
+    df = hist[["Close"]].rename(
+        columns={"Close": "close"}
+    )
+
+    df = df.dropna().sort_index()
+    df = df[~df.index.duplicated(keep="last")]
+
+    if len(df) < 60:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Insufficient historical data for {ticker}",
+        )
+
+    return df
+
+
+def _write_history_to_cache(
+    ticker: str,
+    df: pd.DataFrame,
+) -> None:
+    """Write historical prices to AWS Marketcache."""
+    cache_key = HISTORY_CACHE_KEY.format(ticker=ticker)
+    rows = _to_cache_rows(df)
+
+    logger.info(
+        "AWS CACHE WRITE START: ticker=%s key=%s rows=%d",
+        ticker,
+        cache_key,
+        len(rows),
+    )
+    _market_cache.action(
+        "cache_put",
+        symbol=ticker,
+        cache_key=cache_key,
+        data={"rows": rows},
+    )
+    logger.info(
+        "AWS CACHE WRITE ACKNOWLEDGED: ticker=%s rows=%d",
+        ticker,
+        len(rows),
+    )
+
+
+# --------------------------------------------------
+# Analysis routes
+# --------------------------------------------------
+
+@app.get("/analysis/{ticker}", tags=["analysis"])
+def analysis(
+    ticker: str,
+    user: OptionalCurrentUser,
+):
+    t = ticker.strip().upper()
+
+    if not t:
+        raise HTTPException(
+            status_code=422,
+            detail="Ticker is required",
+        )
+
+    # Layer 1: local in-memory analysis cache.
+    cached_result = _analysis_cache.get(t)
+
+    if cached_result:
+        age = time.time() - cached_result[0]
+        if age < ANALYSIS_CACHE_TTL:
+            logger.info(
+                "LOCAL ANALYSIS CACHE HIT: ticker=%s age_seconds=%.1f",
+                t,
+                age,
+            )
+            return cached_result[1]
+
+        logger.info(
+            "LOCAL ANALYSIS CACHE EXPIRED: ticker=%s age_seconds=%.1f",
+            t,
+            age,
+        )
+        _analysis_cache.pop(t, None)
+    else:
+        logger.info("LOCAL ANALYSIS CACHE MISS: ticker=%s", t)
+
+    # Layer 2: shared AWS market history cache, keyed by ticker.
+    df = None
+
+    try:
+        df = _history_from_cache(t)
+    except MarketCacheError as exc:
+        logger.warning(
+            "AWS CACHE READ FAILED: ticker=%s error=%s",
+            t,
+            exc,
+        )
+
+    # Yahoo Finance remains the fallback on a cache miss or cache error.
+    if df is None:
+        logger.info("YAHOO FALLBACK: fetching history for ticker=%s", t)
+        df = _fetch_history_from_yahoo(t)
+
+        try:
+            _write_history_to_cache(t, df)
+        except MarketCacheError as exc:
+            logger.warning(
+                "AWS CACHE WRITE FAILED: ticker=%s error=%s",
+                t,
+                exc,
+            )
+
+    result = analyze(t, df)
+
+    _analysis_cache[t] = (time.time(), result)
+
+    return result
+
+
+# --------------------------------------------------
+# Personalization
+# --------------------------------------------------
+
+@app.get("/personalization", tags=["personalization"])
+def personalization(user: CurrentUser):
+    try:
+        preferences_response = _market_cache.action(
+            "get_preferences",
+            user_id=user.sub,
+        )
+
+        history_response = _market_cache.action(
+            "get_history",
+            user_id=user.sub,
+        )
+
+    except MarketCacheError as exc:
+        logger.exception(
+            "Failed to load personalization data"
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to load personalization data",
+        ) from exc
+
+    preferences = (
+        preferences_response.get("preferences", preferences_response)
+        if isinstance(preferences_response, dict)
+        else preferences_response
+    )
+
+    history = (
+        history_response.get("history", history_response)
+        if isinstance(history_response, dict)
+        else history_response
+    )
+
+    recommended = list(
+        dict.fromkeys(
+            _ticker_values(preferences)
+            + _ticker_values(history)
+        )
+    )
+
+    return {
+        "preferences": preferences,
+        "history": history,
+        "recommended_tickers": recommended,
+    }
+
+
+@app.post("/interactions", tags=["personalization"])
+def record_interaction(
+    body: InteractionIn,
+    user: CurrentUser,
+):
+    ticker = body.ticker.strip().upper()
+
+    if not ticker:
+        raise HTTPException(
+            status_code=422,
+            detail="Ticker is required",
+        )
+
+    try:
+        return _market_cache.action(
+            "record_interaction",
+            user_id=user.sub,
+            symbol=ticker,
+            interaction_type=body.interaction_type,
+        )
+
+    except MarketCacheError as exc:
+        logger.exception(
+            "Failed to record interaction for %s",
+            ticker,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to record interaction",
+        ) from exc
+
+
+# --------------------------------------------------
+# Custom dataset analysis
+# --------------------------------------------------
+
+@app.post("/analysis/dataset", tags=["analysis"])
+def analysis_dataset(body: DatasetIn):
+    if len(body.rows) < 60:
+        raise HTTPException(
+            status_code=422,
+            detail="Upload at least 60 rows of price history",
+        )
+
+    df = pd.DataFrame(
+        [row.model_dump() for row in body.rows]
+    )
+
+    df["date"] = pd.to_datetime(
+        df["date"], errors="coerce"
+    )
+
+    df["close"] = pd.to_numeric(
+        df["close"], errors="coerce"
+    )
+
+    df = (
+        df.dropna()
+        .sort_values("date")
+        .drop_duplicates("date", keep="last")
+        .set_index("date")
+    )
+
+    if len(df) < 60:
+        raise HTTPException(
+            status_code=422,
+            detail="Need at least 60 valid rows of price history",
+        )
+
+    return analyze(body.label.strip().upper(), df)
+
+
+# --------------------------------------------------
+# Streaming chat
+# --------------------------------------------------
+
+def compose_reply(q: str, c: ChatCtx) -> str:
+    zone = (
+        "overbought"
+        if c.rsi > 70
+        else "oversold"
+        if c.rsi < 30
+        else "neutral-range"
+    )
+
+    return (
+        f"{c.ticker} → {c.signal.replace('_', ' ')}. "
+        f"RSI {c.rsi:.1f} is {zone}; "
+        f"model target ${c.target:.2f}. "
+        f"On \"{q}\": size positions to your risk limits — "
+        "this is a quantitative estimate, not financial advice."
+    )
+
+
+@app.post("/chat/stream", tags=["chat"])
+async def chat_stream(body: ChatIn):
+    async def generate():
+        for token in compose_reply(body.q, body.ctx).split(" "):
+            yield f"data: {json.dumps(token + ' ')}\n\n"
+            await asyncio.sleep(0.02)
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+    )
+</file>
+
+<file path="market_cache.py">
+"""HTTP client for the AWS Stockcache API."""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+from urllib.parse import urlsplit
+
+import httpx
+
+
+class MarketCacheError(RuntimeError):
+    """Raised when Stockcache is unavailable or returns an invalid response."""
+
+
+class MarketCacheClient:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        api_key: str | None = None,
+    ):
+        configured_url = (
+            os.getenv("MARKETCACHE_API_URL", "")
+            if base_url is None
+            else base_url
+        )
+        configured_key = (
+            os.getenv("MARKETCACHE_API_KEY", "")
+            if api_key is None
+            else api_key
+        )
+
+        self.base_url = configured_url.rstrip("/")
+        self.api_key = configured_key
+
+    def action(self, action: str, **data: Any) -> dict[str, Any]:
+        if not self.base_url or not self.api_key:
+            raise MarketCacheError(
+                "MARKETCACHE_API_URL and MARKETCACHE_API_KEY "
+                "must both be configured"
+            )
+
+        try:
+            parsed_url = urlsplit(self.base_url)
+        except ValueError:
+            raise MarketCacheError(
+                "MARKETCACHE_API_URL is invalid"
+            ) from None
+
+        if parsed_url.scheme != "https" or not parsed_url.netloc:
+            raise MarketCacheError(
+                "MARKETCACHE_API_URL must be an HTTPS URL"
+            )
+
+        # Send the action and its supplied fields to API Gateway.
+        request_payload = {"action": action, **data}
+
+        try:
+            response = httpx.post(
+                self.base_url,
+                json=request_payload,
+                headers={"x-api-key": self.api_key},
+                timeout=8.0,
+            )
+            response.raise_for_status()
+            payload = response.json()
+
+        except httpx.HTTPStatusError as exc:
+            # Include a limited response body for debugging, never the API key.
+            status = exc.response.status_code
+            body = exc.response.text[:500]
+
+            raise MarketCacheError(
+                f"Stockcache action '{action}' failed "
+                f"(HTTP {status}): {body}"
+            ) from None
+
+        except httpx.HTTPError as exc:
+            # Avoid exposing request details, headers, or credentials.
+            raise MarketCacheError(
+                f"Stockcache action '{action}' failed "
+                f"({type(exc).__name__})"
+            ) from None
+
+        except ValueError:
+            raise MarketCacheError(
+                f"Stockcache action '{action}' returned invalid JSON"
+            ) from None
+
+        if not isinstance(payload, dict):
+            raise MarketCacheError(
+                f"Stockcache action '{action}' returned "
+                "a non-object response"
+            )
+
+        return payload
+</file>
+
+<file path="requirements.txt">
+# NeuroSignal AI — Python dependencies
+# Install: pip install -r requirements.txt
+
+# Web framework
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+
+# Market data & ML (unchanged)
+pandas>=2.2
+numpy>=1.26
+yfinance>=0.2.40
+scikit-learn>=1.4
+xgboost>=2.0
+
+# Google Sign-In token verification
+google-auth>=2.29
+
+# JWT issuance & validation (for our own session tokens)
+python-jose[cryptography]>=3.3
+httpx>=0.27
+</file>
+
+<file path="test_market_cache.py">
+import unittest
+from unittest.mock import Mock, patch
+
+import httpx
+
+from market_cache import MarketCacheClient, MarketCacheError
+
+
+class MarketCacheClientTests(unittest.TestCase):
+    @patch("market_cache.httpx.post")
+    def test_action_sends_action_payload_and_api_key(self, post):
+        response = Mock()
+        response.json.return_value = {
+            "ok": True,
+            "cache_key": "US:MSFT:QUOTE",
+            "cache_hit": True,
+        }
+        post.return_value = response
+
+        client = MarketCacheClient(
+            "https://cache.example/dev/v1/",
+            "test-key",
+        )
+        result = client.action(
+            "cache_get",
+            symbol="MSFT",
+            cache_key="US:MSFT:QUOTE",
+        )
+
+        self.assertEqual(result["ok"], True)
+        post.assert_called_once_with(
+            "https://cache.example/dev/v1",
+            json={
+                "action": "cache_get",
+                "symbol": "MSFT",
+                "cache_key": "US:MSFT:QUOTE",
+            },
+            headers={"x-api-key": "test-key"},
+            timeout=8.0,
+        )
+
+    def test_action_requires_both_environment_values(self):
+        with self.assertRaisesRegex(
+            MarketCacheError,
+            "must both be configured",
+        ):
+            MarketCacheClient("", "").action(
+                "get_preferences",
+                user_id="user-1",
+            )
+
+    def test_action_requires_https(self):
+        with self.assertRaisesRegex(
+            MarketCacheError,
+            "must be an HTTPS URL",
+        ):
+            MarketCacheClient(
+                "http://cache.example/dev/v1",
+                "test-key",
+            ).action("cache_get", symbol="AAPL")
+
+    @patch("market_cache.httpx.post")
+    def test_action_wraps_connection_failures_without_key(self, post):
+        post.side_effect = httpx.ConnectError("private request details")
+
+        client = MarketCacheClient(
+            "https://cache.example/dev/v1",
+            "secret-key",
+        )
+
+        with self.assertRaisesRegex(
+            MarketCacheError,
+            "cache_get' failed",
+        ) as error:
+            client.action("cache_get", symbol="AAPL")
+
+        self.assertNotIn("secret-key", str(error.exception))
+        self.assertNotIn(
+            "private request details",
+            str(error.exception),
+        )
+
+    @patch("market_cache.httpx.post")
+    def test_action_includes_http_status_and_response_body(self, post):
+        request = httpx.Request(
+            "POST",
+            "https://cache.example/dev/v1",
+        )
+        response = httpx.Response(
+            400,
+            text='{"ok": false, "message": "symbol is required"}',
+            request=request,
+        )
+        post.return_value = response
+
+        client = MarketCacheClient(
+            "https://cache.example/dev/v1",
+            "secret-key",
+        )
+
+        with self.assertRaises(MarketCacheError) as error:
+            client.action("cache_get", ticker="AAPL")
+
+        message = str(error.exception)
+        self.assertIn("HTTP 400", message)
+        self.assertIn("symbol is required", message)
+        self.assertNotIn("secret-key", message)
+
+    @patch("market_cache.httpx.post")
+    def test_action_rejects_non_object_responses(self, post):
+        response = Mock()
+        response.json.return_value = []
+        post.return_value = response
+
+        client = MarketCacheClient(
+            "https://cache.example/dev/v1",
+            "test-key",
+        )
+
+        with self.assertRaisesRegex(
+            MarketCacheError,
+            "non-object response",
+        ):
+            client.action("cache_get", symbol="AAPL")
+
+    @patch("market_cache.httpx.post")
+    def test_action_rejects_invalid_json(self, post):
+        response = Mock()
+        response.json.side_effect = ValueError("invalid JSON")
+        post.return_value = response
+
+        client = MarketCacheClient(
+            "https://cache.example/dev/v1",
+            "test-key",
+        )
+
+        with self.assertRaisesRegex(
+            MarketCacheError,
+            "returned invalid JSON",
+        ):
+            client.action("cache_get", symbol="AAPL")
+
+
+if __name__ == "__main__":
+    unittest.main()
+</file>
+
+</files>

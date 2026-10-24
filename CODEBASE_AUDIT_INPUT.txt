@@ -1,0 +1,336 @@
+﻿NEUROSIGNAL CODEBASE AUDIT
+Project root: E:\neurosignal\neurosignal
+Generated: 10/20/2026 22:03:45
+
+=== PROJECT FILE STRUCTURE ===
+bunfig.toml
+components.json
+eslint.config.js
+package-lock.json
+package.json
+tsconfig.json
+vite.config.ts
+vitest.config.ts
+.output\nitro.json
+.output\package-lock.json
+.output\package.json
+.output\public\assets\auth-CyTgfBx-.js
+.output\public\assets\dashboard-IJbK-V3_.js
+.output\public\assets\index-mfdwjMHx.js
+.output\public\assets\link-DoHggbnW.js
+.output\public\assets\mutation-DQ6N8RA1.js
+.output\public\assets\rolldown-runtime-hePW80VL.js
+.output\public\assets\routes-DnuYseqe.js
+.output\server\wrangler.json
+.wrangler\deploy\config.json
+backend\auth_google.py
+backend\main.py
+backend\market_cache.py
+backend\requirements.txt
+backend\test_market_cache.py
+src\router.tsx
+src\routeTree.gen.ts
+src\server.ts
+src\start.ts
+src\components\DatasetUploader.tsx
+src\components\GoogleSignInButton.tsx
+src\components\KpiTape.tsx
+src\components\QuantChatbot.tsx
+src\components\SignalCard.tsx
+src\components\StockChart.tsx
+src\components\UserMenu.tsx
+src\components\ui\accordion.tsx
+src\components\ui\alert-dialog.tsx
+src\components\ui\alert.tsx
+src\components\ui\aspect-ratio.tsx
+src\components\ui\avatar.tsx
+src\components\ui\badge.tsx
+src\components\ui\breadcrumb.tsx
+src\components\ui\button.tsx
+src\components\ui\calendar.tsx
+src\components\ui\card.tsx
+src\components\ui\carousel.tsx
+src\components\ui\checkbox.tsx
+src\components\ui\collapsible.tsx
+src\components\ui\command.tsx
+src\components\ui\context-menu.tsx
+src\components\ui\dialog.tsx
+src\components\ui\drawer.tsx
+src\components\ui\dropdown-menu.tsx
+src\components\ui\form.tsx
+src\components\ui\hover-card.tsx
+src\components\ui\input-otp.tsx
+src\components\ui\input.tsx
+src\components\ui\label.tsx
+src\components\ui\menubar.tsx
+src\components\ui\navigation-menu.tsx
+src\components\ui\pagination.tsx
+src\components\ui\popover.tsx
+src\components\ui\progress.tsx
+src\components\ui\radio-group.tsx
+src\components\ui\resizable.tsx
+src\components\ui\scroll-area.tsx
+src\components\ui\select.tsx
+src\components\ui\separator.tsx
+src\components\ui\sheet.tsx
+src\components\ui\sidebar.tsx
+src\components\ui\skeleton.tsx
+src\components\ui\slider.tsx
+src\components\ui\sonner.tsx
+src\components\ui\switch.tsx
+src\components\ui\table.tsx
+src\components\ui\tabs.tsx
+src\components\ui\textarea.tsx
+src\components\ui\toggle-group.tsx
+src\components\ui\toggle.tsx
+src\components\ui\tooltip.tsx
+src\hooks\use-mobile.tsx
+src\lib\error-capture.ts
+src\lib\error-page.ts
+src\lib\lovable-error-reporting.ts
+src\lib\utils.ts
+src\routes\dashboard.tsx
+src\routes\index.tsx
+src\routes\__root.tsx
+src\services\api.ts
+src\services\auth.ts
+src\services\session.ts
+src\test\app-routing.test.tsx
+src\test\setup.ts
+src\types\google-identity.d.ts
+src\types\market.ts
+
+=== KEY IMPLEMENTATION REFERENCES ===
+package-lock.json:41: "class-variance-authority": "^0.7.1",
+package-lock.json:46: "input-otp": "^1.4.2",
+package-lock.json:102: "js-tokens": "^4.0.0",
+package-lock.json:1850: "integrity": "sha512-G34BsU90SBj5foYpz8pQqq/Q0Dlfyyl6KitWEfRwXC0QvfwhWNAwS49DWP2+rRJ0iwv20Z2Qx7Sk+T03bGo5JA==",
+package-lock.json:3204: "integrity": "sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg==",
+package-lock.json:3634: "integrity": "sha512-DZY9TuJAOgU3UyHUhXb4CcTYEHNZszlwkPg4VViIwTxOKzLprPUU+rbaPZQd3srqkGOtpaDdKpW972UV/LKlcg==",
+package-lock.json:5128: "node_modules/class-variance-authority": {
+package-lock.json:5130: "resolved": "https://registry.npmjs.org/class-variance-authority/-/class-variance-authority-0.7.1.tgz",
+package-lock.json:5459: "better-sqlite3": "*",
+package-lock.json:5462: "sqlite3": "*"
+package-lock.json:5471: "better-sqlite3": {
+package-lock.json:5480: "sqlite3": {
+package-lock.json:5680: "@vercel/queue": ">=0.2.0",
+package-lock.json:5688: "@vercel/queue": {
+package-lock.json:6656: "node_modules/input-otp": {
+package-lock.json:6658: "resolved": "https://registry.npmjs.org/input-otp/-/input-otp-1.5.0.tgz",
+package-lock.json:6730: "node_modules/js-tokens": {
+package-lock.json:6732: "resolved": "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
+package-lock.json:7322: "@vercel/queue": "^0.2.0",
+package-lock.json:7332: "@vercel/queue": {
+package-lock.json:7545: "integrity": "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==",
+package.json:52: "class-variance-authority": "^0.7.1",
+package.json:57: "input-otp": "^1.4.2",
+.output\public\assets\auth-CyTgfBx-.js:1: var e=`neurosignal.session`;function t(){if(typeof window>`u`)return null;try{let t=window.localStorage.getItem(e);return t?JSON.parse(t):null}catch{return null}}function n(t){window.localStorage.setItem(e,JSON.stringify...
+.output\public\assets\auth-CyTgfBx-.js:3: `);u=r.pop()??``;for(let e of r){let t=e.replace(/^data: ?/gm,``);if(t===`[DONE]`)return;n(JSON.parse(t))}}}async function p(e){let t;try{t=await fetch(`${a}/auth/google`,{method:`POST`,headers:{"Content-Type":`applicati...
+.output\public\assets\dashboard-IJbK-V3_.js:1: import{n as e,r as t,t as n}from"./rolldown-runtime-hePW80VL.js";import{P as r,i,l as a,n as o,t as s}from"./link-DoHggbnW.js";import{C as c,D as l,E as u,b as d,c as f,d as p,g as m,i as h,l as g,n as _,o as v,p as y,s ...
+.output\public\assets\dashboard-IJbK-V3_.js:2: In order to be iterable, non-array objects must have a [Symbol.iterator]() method.`)}function bi(e,t){if(e){if(typeof e==`string`)return xi(e,t);var n={}.toString.call(e).slice(8,-1);return n===`Object`&&e.constructor&&(...
+.output\public\assets\dashboard-IJbK-V3_.js:9: In order to be iterable, non-array objects must have a [Symbol.iterator]() method.`)}function yu(e,t){if(e){if(typeof e==`string`)return bu(e,t);var n={}.toString.call(e).slice(8,-1);return n===`Object`&&e.constructor&&(...
+.output\public\assets\dashboard-IJbK-V3_.js:40: In order to be iterable, non-array objects must have a [Symbol.iterator]() method.`)}function fp(e,t){if(e){if(typeof e==`string`)return pp(e,t);var n={}.toString.call(e).slice(8,-1);return n===`Object`&&e.constructor&&(...
+.output\public\assets\dashboard-IJbK-V3_.js:41: In order to be iterable, non-array objects must have a [Symbol.iterator]() method.`)}function rb(e,t){if(e){if(typeof e==`string`)return ib(e,t);var n={}.toString.call(e).slice(8,-1);return n===`Object`&&e.constructor&&(...
+.output\public\assets\dashboard-IJbK-V3_.js:49: In order to be iterable, non-array objects must have a [Symbol.iterator]() method.`)}function SO(e,t){if(e){if(typeof e==`string`)return CO(e,t);var n={}.toString.call(e).slice(8,-1);return n===`Object`&&e.constructor&&(...
+.output\public\assets\dashboard-IJbK-V3_.js:51: In order to be iterable, non-array objects must have a [Symbol.iterator]() method.`)}function IA(e,t){if(e){if(typeof e==`string`)return LA(e,t);var n={}.toString.call(e).slice(8,-1);return n===`Object`&&e.constructor&&(...
+.output\public\assets\dashboard-IJbK-V3_.js:62: `,`"`,o.BYTE_ORDER_MARK],o.WORKERS_SUPPORTED=!n&&!!t.Worker,o.NODE_STREAM_INPUT=1,o.LocalChunkSize=10485760,o.RemoteChunkSize=5242880,o.DefaultDelimiter=`,`,o.Parser=h,o.ParserHandle=p,o.NetworkStreamer=l,o.FileStreamer=...
+.output\public\assets\index-mfdwjMHx.js:1: const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/routes-DnuYseqe.js","assets/rolldown-runtime-hePW80VL.js","assets/link-DoHggbnW.js","assets/auth-CyTgfBx-.js","assets/dashboard-IJbK-V3_.js","assets/mutati...
+.output\public\assets\index-mfdwjMHx.js:9: `+e.stack}}var qe=Object.prototype.hasOwnProperty,Je=t.unstable_scheduleCallback,Ye=t.unstable_cancelCallback,Xe=t.unstable_shouldYield,Ze=t.unstable_requestPaint,Qe=t.unstable_now,$e=t.unstable_getCurrentPriorityLevel,e...
+.output\public\assets\index-mfdwjMHx.js:10: `).replace(Qf,``)}function ep(e,t){return t=$f(t),$f(e)===t}function $(e,t,n,r,a,o){switch(n){case`children`:if(typeof r==`string`)t===`body`||t===`textarea`&&r===``||xn(e,r);else if(typeof r==`number`||typeof r==`bigint...
+.output\public\assets\index-mfdwjMHx.js:13: `;case`\\r`:return`\r`;case`\\b`:return`\b`;case`\\t`:return` `;case`\\f`:return`\f`;case`\\x3C`:return`<`;case`\\u2028`:return`\u2028`;case`\\u2029`:return`\u2029`;default:return e}}function Pr(e){return typeof e==`stri...
+.output\public\assets\mutation-DQ6N8RA1.js:1: import{r as e,t}from"./rolldown-runtime-hePW80VL.js";import{P as n,l as r}from"./link-DoHggbnW.js";var i=t((e=>{var t=n();function r(e){var t=`https://react.dev/errors/`+e;if(1<arguments.length){t+=`?args[]=`+encodeURICo...
+.output\public\assets\routes-DnuYseqe.js:1: import{r as e}from"./rolldown-runtime-hePW80VL.js";import{P as t,l as n,n as r,t as i}from"./link-DoHggbnW.js";import{t as a}from"./auth-CyTgfBx-.js";var o=e(t(),1),s=n(),c=`https://accounts.google.com/gsi/client`;functi...
+backend\auth_google.py:2: auth_google.py — Google Sign-In (ID token) authentication for NeuroSignal AI.
+backend\auth_google.py:5: 1. Frontend loads Google Identity Services (GSI) and obtains a credential (ID token).
+backend\auth_google.py:6: 2. Frontend POSTs that token to POST /auth/google on this backend.
+backend\auth_google.py:7: 3. Backend verifies the token's signature, audience, and expiry via Google's public keys.
+backend\auth_google.py:8: 4. Backend returns a signed JWT the frontend stores in memory / sessionStorage.
+backend\auth_google.py:9: 5. All subsequent API calls carry Authorization: Bearer <jwt> and are validated by
+backend\auth_google.py:13: google-auth>=2.29
+backend\auth_google.py:15: httpx>=0.27 # only needed if you add token refresh helpers
+backend\auth_google.py:24: from fastapi import Depends, HTTPException, status
+backend\auth_google.py:25: from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+backend\auth_google.py:26: from google.auth.transport import requests as google_requests
+backend\auth_google.py:27: from google.oauth2 import id_token as google_id_token
+backend\auth_google.py:35: # Your Google OAuth 2.0 client ID (from https://console.cloud.google.com)
+backend\auth_google.py:39: # python -c "import secrets; print(secrets.token_hex(32))"
+backend\auth_google.py:50: class GoogleAuthIn(BaseModel):
+backend\auth_google.py:51: """Body of POST /auth/google."""
+backend\auth_google.py:52: credential: str # The raw Google ID token string from GSI
+backend\auth_google.py:56: """Minimal profile extracted from a verified Google token.
+backend\auth_google.py:57: Nothing here is stored — it is derived fresh from Google on every login.
+backend\auth_google.py:66: class AuthResponse(BaseModel):
+backend\auth_google.py:67: """Returned to the frontend after successful authentication."""
+backend\auth_google.py:68: access_token: str # Signed JWT — store in memory or sessionStorage
+backend\auth_google.py:69: token_type: str = "bearer"
+backend\auth_google.py:77: def _verify_google_token(credential: str) -> dict:
+backend\auth_google.py:79: Verify the Google ID token and return its decoded claims.
+backend\auth_google.py:81: Raises HTTPException(401) if the token is invalid, expired, or issued
+backend\auth_google.py:85: claims: dict = google_id_token.verify_oauth2_token(
+backend\auth_google.py:93: status_code=status.HTTP_401_UNAUTHORIZED,
+backend\auth_google.py:94: detail=f"Invalid Google token: {exc}",
+backend\auth_google.py:97: # Extra guard: verify the token was intended for THIS app.
+backend\auth_google.py:100: status_code=status.HTTP_401_UNAUTHORIZED,
+backend\auth_google.py:101: detail="Token audience mismatch.",
+backend\auth_google.py:110: The JWT is verified on every protected request; no session state is kept
+backend\auth_google.py:125: def _decode_jwt(token: str) -> dict:
+backend\auth_google.py:131: payload: dict = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+backend\auth_google.py:134: status_code=status.HTTP_401_UNAUTHORIZED,
+backend\auth_google.py:135: detail=f"Could not validate token: {exc}",
+backend\auth_google.py:136: headers={"WWW-Authenticate": "Bearer"},
+backend\auth_google.py:142: # FastAPI dependency — protect any route with:
+backend\auth_google.py:151: credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer)],
+backend\auth_google.py:154: FastAPI dependency that validates the JWT in the Authorization header
+backend\auth_google.py:158: @app.get("/protected")
+backend\auth_google.py:174: HTTPAuthorizationCredentials | None, Depends(_optional_bearer)
+backend\auth_google.py:191: async def google_login(body: GoogleAuthIn) -> AuthResponse:
+backend\auth_google.py:193: POST /auth/google
+backend\auth_google.py:195: Accepts a Google ID token, verifies it, and returns a signed JWT.
+backend\auth_google.py:198: claims = _verify_google_token(body.credential)
+backend\auth_google.py:208: token = _issue_jwt(profile)
+backend\auth_google.py:209: return AuthResponse(access_token=token, profile=profile)
+backend\auth_google.py:212: async def logout() -> dict:
+backend\auth_google.py:214: POST /auth/logout
+backend\auth_google.py:216: JWTs are stateless — 'logout' is handled client-side by discarding the
+backend\auth_google.py:217: token. This endpoint exists so the frontend has a consistent hook for
+backend\auth_google.py:218: any future server-side cleanup (e.g. token revocation list).
+backend\auth_google.py:220: return {"ok": True, "message": "Token discarded client-side."}
+backend\main.py:13: import yfinance as yf
+backend\main.py:14: from fastapi import FastAPI, HTTPException
+backend\main.py:15: from fastapi.middleware.cors import CORSMiddleware
+backend\main.py:16: from fastapi.responses import StreamingResponse
+backend\main.py:18: from sklearn.ensemble import RandomForestRegressor
+backend\main.py:19: from sklearn.metrics import mean_squared_error
+backend\main.py:20: from xgboost import XGBRegressor
+backend\main.py:23: from auth_google import (
+backend\main.py:24: AuthResponse,
+backend\main.py:26: GoogleAuthIn,
+backend\main.py:28: google_login,
+backend\main.py:29: logout as google_logout,
+backend\main.py:38: app = FastAPI(title="NeuroSignal AI", version="3.0")
+backend\main.py:61: # Authentication
+backend\main.py:64: @app.post("/auth/google", response_model=AuthResponse, tags=["auth"])
+backend\main.py:65: async def route_google_login(body: GoogleAuthIn):
+backend\main.py:66: """Verify a Google ID token and return a signed JWT."""
+backend\main.py:67: return await google_login(body)
+backend\main.py:70: @app.post("/auth/logout", tags=["auth"])
+backend\main.py:71: async def route_logout():
+backend\main.py:72: """Client should discard its token."""
+backend\main.py:73: return await google_logout()
+backend\main.py:76: @app.get("/auth/me", tags=["auth"])
+backend\main.py:199: "XGBoost": XGBRegressor(
+backend\main.py:312: key=lambda item: -item["weight"],
+backend\main.py:323: Read and validate historical prices from AWS Marketcache.
+backend\main.py:332: "AWS CACHE READ: ticker=%s key=%s",
+backend\main.py:360: logger.info("AWS CACHE MISS: ticker=%s (empty entry)", ticker)
+backend\main.py:372: "AWS CACHE MISS: ticker=%s (empty entry)",
+backend\main.py:421: "AWS CACHE MISS: ticker=%s valid_rows=%d (minimum=60)",
+backend\main.py:428: "AWS CACHE HIT: ticker=%s rows=%d",
+backend\main.py:525: """Write historical prices to AWS Marketcache."""
+backend\main.py:530: "AWS CACHE WRITE START: ticker=%s key=%s rows=%d",
+backend\main.py:542: "AWS CACHE WRITE ACKNOWLEDGED: ticker=%s rows=%d",
+backend\main.py:552: @app.get("/analysis/{ticker}", tags=["analysis"])
+backend\main.py:587: # Layer 2: shared AWS market history cache, keyed by ticker.
+backend\main.py:594: "AWS CACHE READ FAILED: ticker=%s error=%s",
+backend\main.py:608: "AWS CACHE WRITE FAILED: ticker=%s error=%s",
+backend\main.py:624: @app.get("/personalization", tags=["personalization"])
+backend\main.py:672: @app.post("/interactions", tags=["personalization"])
+backend\main.py:708: @app.post("/analysis/dataset", tags=["analysis"])
+backend\main.py:766: @app.post("/chat/stream", tags=["chat"])
+backend\main.py:769: for token in compose_reply(body.q, body.ctx).split(" "):
+backend\main.py:770: yield f"data: {json.dumps(token + ' ')}\n\n"
+backend\market_cache.py:2: """HTTP client for the AWS Stockcache API."""
+src\server.ts:48: async fetch(request: Request, env: unknown, ctx: unknown) {
+src\server.ts:51: const response = await handler.fetch(request, env, ctx);
+src\components\GoogleSignInButton.tsx:2: import { loginWithGoogle } from "@/services/auth";
+src\components\GoogleSignInButton.tsx:3: import type { StoredSession } from "@/services/session";
+src\components\GoogleSignInButton.tsx:20: export function GoogleSignInButton({ onSignedIn }: { onSignedIn: (s: StoredSession) => void }) {
+src\components\GoogleSignInButton.tsx:25: const clientId = import.meta.env["VITE_GOOGLE_CLIENT_ID"] as string | undefined;
+src\components\GoogleSignInButton.tsx:42: const session = await loginWithGoogle(credential);
+src\components\GoogleSignInButton.tsx:43: callbackRef.current(session);
+src\components\UserMenu.tsx:3: import { getSession } from "@/services/session";
+src\components\UserMenu.tsx:4: import { signOut } from "@/services/auth";
+src\components\UserMenu.tsx:5: import type { StoredSession } from "@/services/session";
+src\components\UserMenu.tsx:9: const [session, setSession] = useState<StoredSession | null>(null);
+src\components\UserMenu.tsx:13: // Read the session after mount so server and browser render the same HTML.
+src\components\UserMenu.tsx:15: setSession(getSession());
+src\components\UserMenu.tsx:28: setSession(null);
+src\components\UserMenu.tsx:40: {session?.picture ? (
+src\components\UserMenu.tsx:41: <img src={session.picture} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+src\components\UserMenu.tsx:52: {session ? (
+src\components\UserMenu.tsx:55: <p className="truncate font-medium">{session.name || "Signed in"}</p>
+src\components\UserMenu.tsx:56: <p className="truncate text-[11px] text-muted-foreground">{session.email}</p>
+src\components\ui\alert.tsx:2: import { cva, type VariantProps } from "class-variance-authority";
+src\components\ui\badge.tsx:2: import { cva, type VariantProps } from "class-variance-authority";
+src\components\ui\button.tsx:3: import { cva, type VariantProps } from "class-variance-authority";
+src\components\ui\input-otp.tsx:2: import { OTPInput, OTPInputContext } from "input-otp";
+src\components\ui\input-otp.tsx:7: const InputOTP = React.forwardRef<
+src\components\ui\input-otp.tsx:8: React.ElementRef<typeof OTPInput>,
+src\components\ui\input-otp.tsx:9: React.ComponentPropsWithoutRef<typeof OTPInput>
+src\components\ui\input-otp.tsx:11: <OTPInput
+src\components\ui\input-otp.tsx:21: InputOTP.displayName = "InputOTP";
+src\components\ui\input-otp.tsx:23: const InputOTPGroup = React.forwardRef<
+src\components\ui\input-otp.tsx:29: InputOTPGroup.displayName = "InputOTPGroup";
+src\components\ui\input-otp.tsx:31: const InputOTPSlot = React.forwardRef<
+src\components\ui\input-otp.tsx:35: const inputOTPContext = React.useContext(OTPInputContext);
+src\components\ui\input-otp.tsx:36: const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index] ?? {
+src\components\ui\input-otp.tsx:61: InputOTPSlot.displayName = "InputOTPSlot";
+src\components\ui\input-otp.tsx:63: const InputOTPSeparator = React.forwardRef<
+src\components\ui\input-otp.tsx:71: InputOTPSeparator.displayName = "InputOTPSeparator";
+src\components\ui\input-otp.tsx:73: export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator };
+src\components\ui\label.tsx:5: import { cva, type VariantProps } from "class-variance-authority";
+src\components\ui\navigation-menu.tsx:3: import { cva } from "class-variance-authority";
+src\components\ui\sheet.tsx:5: import { cva, type VariantProps } from "class-variance-authority";
+src\components\ui\sidebar.tsx:3: import { cva, type VariantProps } from "class-variance-authority";
+src\components\ui\toggle-group.tsx:5: import { type VariantProps } from "class-variance-authority";
+src\components\ui\toggle.tsx:3: import { cva, type VariantProps } from "class-variance-authority";
+src\routes\dashboard.tsx:10: import { getSession, type StoredSession } from "@/services/session";
+src\routes\dashboard.tsx:41: const [session, setSession] = useState<StoredSession | null>(null);
+src\routes\dashboard.tsx:44: setSession(getSession());
+src\routes\dashboard.tsx:53: queryKey: ["personalization", session?.user_id],
+src\routes\dashboard.tsx:55: enabled: Boolean(session),
+src\routes\dashboard.tsx:80: if (session) interaction.mutate(selected);
+src\routes\dashboard.tsx:163: {!uploaded && <button onClick={() => q.refetch()} className="underline">Retry</button>}
+src\services\api.ts:2: import { getAuthHeaders } from "./session";
+src\services\api.ts:6: * Talks to the FastAPI backend in /backend. Override with VITE_NEUROSIGNAL_API_URL.
+src\services\api.ts:9: (import.meta.env["VITE_NEUROSIGNAL_API_URL"] as string | undefined) ?? "http://localhost:8000";
+src\services\api.ts:20: res = await fetch(`${API_BASE}${path}`, {
+src\services\api.ts:24: ...getAuthHeaders(),
+src\services\api.ts:69: onToken: (t: string) => void,
+src\services\api.ts:72: const res = await fetch(`${API_BASE}/chat/stream`, {
+src\services\api.ts:74: headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...getAuthHeaders() },
+src\services\api.ts:93: onToken(JSON.parse(data) as string);
+src\services\auth.ts:2: import { type StoredSession, clearSession, saveSession, getSession } from "./session";
+src\services\auth.ts:4: export { getSession };
+src\services\auth.ts:6: interface BackendAuthResponse {
+src\services\auth.ts:7: access_token: string;
+src\services\auth.ts:17: /** Sends the Google ID token to FastAPI, stores the returned session. */
+src\services\auth.ts:18: export async function loginWithGoogle(credential: string): Promise<StoredSession> {
+src\services\auth.ts:21: res = await fetch(`${API_BASE}/auth/google`, {
+src\services\auth.ts:35: const data = (await res.json()) as BackendAuthResponse;
+src\services\auth.ts:36: const session: StoredSession = {
+src\services\auth.ts:41: authenticated_via: "google",
+src\services\auth.ts:42: token: data.access_token,
+src\services\auth.ts:44: saveSession(session);
+src\services\auth.ts:45: return session;
+src\services\auth.ts:49: clearSession();
+src\services\auth.ts:52: await fetch(`${API_BASE}/auth/logout`, { method: "POST" }).catch(() => undefined);
+src\services\session.ts:2: * Session storage for the Google-authenticated user.
+src\services\session.ts:7: export interface StoredSession {
+src\services\session.ts:12: authenticated_via: "google";
+src\services\session.ts:13: token: string; // our backend-issued JWT
+src\services\session.ts:16: const KEY = "neurosignal.session";
+src\services\session.ts:18: export function getSession(): StoredSession | null {
+src\services\session.ts:21: const raw = window.localStorage.getItem(KEY);
+src\services\session.ts:22: return raw ? (JSON.parse(raw) as StoredSession) : null;
+src\services\session.ts:28: export function saveSession(session: StoredSession): void {
+src\services\session.ts:29: window.localStorage.setItem(KEY, JSON.stringify(session));
+src\services\session.ts:32: export function clearSession(): void {
+src\services\session.ts:33: window.localStorage.removeItem(KEY);
+src\services\session.ts:37: export function getAuthHeaders(): Record<string, string> {
+src\services\session.ts:38: const s = getSession();
+src\services\session.ts:39: return s ? { Authorization: `Bearer ${s.token}` } : {};
+src\types\market.ts:3: export interface UserSession {
+src\types\market.ts:6: authenticated_via: "magic_link" | "passkey" | "otp";
+src\types\market.ts:24: model_used: "XGBoost" | "Random Forest";
+src\types\market.ts:43: /** Minimal payload sent to the chatbot to keep token usage low. */
