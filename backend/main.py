@@ -877,5 +877,5 @@ async def degrade_optional_routes(request: _Request, call_next):
     response = await call_next(request)
     fallback = _OPTIONAL_FALLBACKS.get(request.url.path)
     if fallback and response.status_code in (500, 502, 503, 504):
-        return _JSONResponse(status_code=200, content=fallback)
+        origin = request.headers.get("origin", ""); allowed = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]; headers = {"Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true", "Vary": "Origin"} if origin in allowed else {}; return _JSONResponse(status_code=200, content=fallback, headers=headers)
     return response
