@@ -38,7 +38,6 @@ from ticker_resolver import Listing, is_market_open, resolve
 # Application configuration
 # --------------------------------------------------
 
-from deep_models import build_models
 app = FastAPI(title="NeuroSignal AI", version="3.1")
 
 from ask_neuro import router as ask_router
