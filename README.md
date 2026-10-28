@@ -40,16 +40,3 @@ The model pipeline is intended for experimentation. It is not yet supported by w
 * Short-lived JWT sessions for authenticated API requests.
 * Configurable CORS origins.
 * API keys for server-to-server calls to the AWS market-cache and LLM-router endpoints. These keys stay on the backend and must never be exposed through frontend environment variables.
-
-## Architecture
-
-```mermaid
-flowchart TD
-    U[User / Browser] --> FE[React + TypeScript Frontend<br/>Cloudflare Workers]
-    FE -->|HTTPS + JWT| API[FastAPI Backend<br/>Render]
-    FE -->|Google Sign-In Credential| AUTH[Google Token Verification<br/>JWT Issued by Backend]
-    AUTH --> API
-
-    API -->|Historical Price Cache| MC[AWS API Gateway<br/>MarketCache API]
-    MC -. Cache Miss or
-```
